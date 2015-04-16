@@ -23,6 +23,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.math3.stat.Frequency;
+import org.apache.commons.math3.stat.StatUtils;
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
+import org.apache.commons.math3.stat.descriptive.rank.Median;
+import org.apache.commons.math3.stat.descriptive.rank.Percentile;
 import org.eclipse.egit.github.core.PullRequest;
 import org.joda.time.Duration;
 import org.joda.time.Instant;
@@ -51,7 +57,7 @@ public class PRStatsCollector {
             this.daysOpen.add(daysOpen);
         }
 
-        if (pr.isMergeable() && !pr.isMerged()) {
+        if (pr.isMergeable() && pr.getMergedAt() == null) {
             this.mergeable++;
         }
 
@@ -133,45 +139,67 @@ public class PRStatsCollector {
         if (values.size() == 0)
             return;
 
-        long min = Long.MAX_VALUE, max = 0, sum = 0;
-
-        Map<Long, Long> cf = new HashMap<Long, Long>();
+        //Map<Long, Long> cf = new HashMap<Long, Long>();
+        Frequency freq = new Frequency();
+        Percentile percentiles = new Percentile();
+        DescriptiveStatistics stats = new DescriptiveStatistics();
         for (long value : values) {
-            min = Math.min(min, value);
-            max = Math.max(max, value);
-            sum += value;
-
-            if (cf.containsKey(value)) {
-                cf.put(value, cf.get(value).longValue() + 1);
-            } else {
-                cf.put(value, 1l);
-            }
+            freq.incrementValue(value, 1);
+            stats.addValue((double)value);
+            
+//            if (cf.containsKey(value)) {
+//                cf.put(value, cf.get(value).longValue() + 1);
+//            } else {
+//                cf.put(value, 1l);
+//            }
         }
+        double[] ds = toDoubles(values);
+        percentiles.setData(ds);
+        long mode = (long)StatUtils.mode(ds)[0];
 
-        stream.println("Minimum " + metric + ": " + min);
-        stream.println("Maximum " + metric + ": " + max);
-        stream.println("Average " + metric + ": " + (sum / values.size()));
+        stream.println("Minimum " + metric + ": " + (long)stats.getMin());
+        stream.println("Maximum " + metric + ": " + (long)stats.getMax());
+        stream.println("Average (Arithmetic Mean) " + metric + ": " + (long)stats.getMean());
+        stream.println("Average (Geometric Mean) " + metric + ": " + (long)stats.getGeometricMean());
+        stream.println("Mode " + metric + ": " + mode);
         stream.println("Cumulative Frequency:");
-        long total = 0, previous = -1;
-        for (long i = 0; i <= max; i++) {
-            if (cf.containsKey(i)) {
-                total += cf.get(i).longValue();
-            } else {
-                continue;
-            }
-            if (total != previous) {
-                stream.print(i + " " + metric + ": " + total);
-                stream.print(" (" + cf.get(i).longValue());
-                int percentage = (int) (((double) total / (double) values.size()) * 100);
-                stream.print(" " + percentage + "%");
-                stream.println(")");
-                previous = total;
-            }
-        }
+        outputPercentile(freq, percentiles, 25, metric, stream);
+        outputPercentile(freq, percentiles, 50, metric, stream);
+        outputPercentile(freq, percentiles, 75, metric, stream);
+        outputPercentile(freq, percentiles, 100, metric, stream);
+//        long total = 0, previous = -1;
+//        for (long i = 0; i <= max; i++) {
+//            if (cf.containsKey(i)) {
+//                total += cf.get(i).longValue();
+//            } else {
+//                continue;
+//            }
+//            if (total != previous) {
+//                stream.print(i + " " + metric + ": " + total);
+//                stream.print(" (" + cf.get(i).longValue());
+//                int percentage = (int) (((double) total / (double) values.size()) * 100);
+//                stream.print(" " + percentage + "%");
+//                stream.println(")");
+//                previous = total;
+//            }
+//        }
         stream.println();
     }
 
     private void outputPercentage(long num, long total, String metric, PrintStream stream) {
         stream.println("Percentage " + metric + ": " + (int) (((double) num / (double) total) * 100) + "%");
+    }
+
+    private void outputPercentile(Frequency freq, Percentile percentiles, int p, String metric, PrintStream stream) {
+        long value = (long) percentiles.evaluate((double)p);
+        stream.println("  " + p + "% (" + value + " " + metric + "): " + (long) freq.getCumFreq(value));
+    }
+
+    private double[] toDoubles(List<Long> values) {
+        double[] ds = new double[values.size()];
+        for (int i = 0; i < ds.length; i++) {
+            ds[i] = values.get(i);
+        }
+        return ds;
     }
 }
