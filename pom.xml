@@ -9,6 +9,7 @@
 
 	<properties>
 		<airline.version>0.9.1</airline.version>
+		<commons-csv.version>1.1</commons-csv.version>
 		<commons-math.version>3.4.1</commons-math.version>
 		<github-api.version>2.1.5</github-api.version>
 		<joda-time.version>2.7</joda-time.version>
@@ -35,10 +36,24 @@
 			<artifactId>commons-math3</artifactId>
 			<version>${commons-math.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-csv</artifactId>
+			<version>${commons-csv.version}</version>
+		</dependency>
 	</dependencies>
 
 	<build>
 		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.3</version>
+				<configuration>
+					<source>1.7</source>
+					<target>1.7</target>
+				</configuration>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-shade-plugin</artifactId>
