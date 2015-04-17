@@ -241,21 +241,21 @@ public class PullRequestStats {
         if (this.oauthToken != null) {
             // OAuth 2 Authentication
             client.setOAuth2Token(this.oauthToken);
-            System.out.println("Authenticating to GitHub using OAuth2");
+            System.out.println("Authenticating to GitHub using OAuth2 Token");
         } else {
             // Username and Password authentication
             if (this.user == null) {
                 System.out.print("Please enter your GitHub username [" + System.getProperty("user.name") + "]: ");
                 this.user = System.console().readLine();
             }
-            if (this.user == null) {
+            if (this.user == null || this.user.length() == 0) {
                 this.user = System.getProperty("user.name");
             }
             if (this.pwd == null) {
                 System.out.print("Please enter your GitHub password: ");
                 this.pwd = new String(System.console().readPassword());
             }
-            if (this.pwd == null) {
+            if (this.pwd == null || this.pwd.length() == 0) {
                 System.err.println("Failed to specify a GitHub password");
                 System.exit(1);
             }
