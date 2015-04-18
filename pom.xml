@@ -11,7 +11,9 @@
 		<airline.version>0.9.1</airline.version>
 		<commons-csv.version>1.1</commons-csv.version>
 		<commons-math.version>3.4.1</commons-math.version>
-		<github-api.version>2.1.5</github-api.version>
+		<!-- <github-api.version>2.1.5</github-api.version> -->
+		<github-api.version>4.0.0.201503231230-m1</github-api.version>
+		<gson.version>2.2.2</gson.version>
 		<joda-time.version>2.7</joda-time.version>
 	</properties>
 
@@ -40,6 +42,10 @@
 			<groupId>org.apache.commons</groupId>
 			<artifactId>commons-csv</artifactId>
 			<version>${commons-csv.version}</version>
+		</dependency><dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+			<version>${gson.version}</version>
 		</dependency>
 	</dependencies>
 
@@ -65,6 +71,18 @@
 							<mainClass>com.github.rvesse.github.pr.stats.PullRequestStats</mainClass>
 						</transformer>
 					</transformers>
+					<!-- Workaround from http://stackoverflow.com/questions/999489/invalid-signature-file-when-attempting-to-run-a-jar -->
+					<filters>
+						<filter>
+							<artifact>*:*</artifact>
+							<excludes>
+								<exclude>META-INF/*.SF</exclude>
+								<exclude>META-INF/*.DSA</exclude>
+								<exclude>META-INF/*.RSA</exclude>
+								<exclude>log4j.properties</exclude>
+							</excludes>
+						</filter>
+					</filters>
 				</configuration>
 				<executions>
 					<execution>
@@ -77,4 +95,17 @@
 			</plugin>
 		</plugins>
 	</build>
+
+	<repositories>
+		<repository>
+			<id>egit-release</id>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+			<url>https://repo.eclipse.org/content/repositories/egit-releases/</url>
+		</repository>
+	</repositories>
 </project>

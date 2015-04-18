@@ -9,11 +9,7 @@ import org.joda.time.Instant;
 
 public class AbstractPullRequestCollector implements Collector<PullRequest> {
 
-    protected int count;
-    protected int open;
-    protected int merged;
-    protected int mergeable;
-    protected int closed;
+    private long count, open, merged, mergeable, closed;
     protected LongStatsCollector daysOpen = new LongStatsCollector();
     protected LongStatsCollector daysToMerge = new LongStatsCollector();
     private LongStatsCollector daysToClose = new LongStatsCollector();

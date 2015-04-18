@@ -33,11 +33,12 @@ import org.eclipse.egit.github.core.service.PullRequestService;
 import org.eclipse.egit.github.core.service.UserService;
 
 import com.github.rvesse.github.pr.stats.collectors.AbstractPullRequestCollector;
+import com.github.rvesse.github.pr.stats.collectors.AbstractUserPullRequestCollector;
 import com.github.rvesse.github.pr.stats.collectors.LongStatsCollector;
+import com.github.rvesse.github.pr.stats.collectors.MergingUserCollector;
 import com.github.rvesse.github.pr.stats.collectors.PullRequestsCollector;
-import com.github.rvesse.github.pr.stats.collectors.UserPullRequestsCollector;
-import com.github.rvesse.github.pr.stats.comparators.ReversedComparator;
-import com.github.rvesse.github.pr.stats.comparators.UserPullRequestsComparator;
+import com.github.rvesse.github.pr.stats.collectors.UserCollector;
+import com.github.rvesse.github.pr.stats.comparators.UserComparator;
 
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
@@ -68,6 +69,15 @@ public class PullRequestStats {
 
     @Option(name = { "--user-stats" }, description = "When set includes detailed user statistics")
     private boolean userDetailedStats = false;
+
+    @Option(name = { "--merge-summary" }, description = "When set includes a summary of merging users in the statistics i.e. details about who merges the pull requests")
+    private boolean mergeSummary = false;
+
+    @Option(name = { "--merge-stats" }, description = "When set includes detailed merging user statistics i.e. details about who merges the pull requests")
+    private boolean mergeDetailedStats = false;
+
+    @Option(name = { "-a", "--all" }, description = "When set includes all available statistics in the output")
+    private boolean all = false;
 
     @Inject
     private HelpOption help = new HelpOption();
@@ -126,7 +136,8 @@ public class PullRequestStats {
         PullRequestService prService = new PullRequestService(client);
         RepositoryId repoId = prepareRepositoryId();
         List<PullRequest> prs = prService.getPullRequests(repoId, "all");
-        PullRequestsCollector collector = new PullRequestsCollector();
+        PullRequestsCollector collector = new PullRequestsCollector(this.userSummary || this.userDetailedStats
+                || this.all, this.mergeSummary || this.mergeDetailedStats || this.all);
         collector.start();
         for (PullRequest pr : prs) {
             System.out.println("Processing PR #" + pr.getNumber());
@@ -156,27 +167,58 @@ public class PullRequestStats {
         System.out.println();
 
         // User Stats
-        List<UserPullRequestsCollector> userStats = collector.getUserStats();
-        UserPullRequestsComparator userComparator = new UserPullRequestsComparator();
-        if (this.userSummary) {
-            System.out.println("Total Users: " + collector.getTotalUsers());
-            UserPullRequestsCollector maxUser = Collections.max(userStats, userComparator);
-            List<UserPullRequestsCollector> maxUsers = findEquivalent(userStats, maxUser, userComparator);
-            UserPullRequestsCollector minUser = Collections.min(userStats, userComparator);
-            List<UserPullRequestsCollector> minUsers = findEquivalent(userStats, minUser, userComparator);
+        List<UserCollector> userStats = collector.getUserStats();
+        UserComparator<UserCollector> userComparator = new UserComparator<UserCollector>();
+        if (this.userSummary || this.all) {
+            System.out.println("Total Users: " + userStats.size());
 
-            System.out.println("Max Pull Requests by User: " + maxUser.getTotal() + " " + maxUsers);
-            System.out.println("Min Pull Requests by User: " + minUser.getTotal() + " " + minUsers);
-            System.out.println("Average Pull Requests per User: " + (collector.getTotal() / collector.getTotalUsers()));
+            if (userStats.size() > 0) {
+                UserCollector maxUser = Collections.max(userStats, userComparator);
+                List<UserCollector> maxUsers = findEquivalent(userStats, maxUser, userComparator);
+                UserCollector minUser = Collections.min(userStats, userComparator);
+                List<UserCollector> minUsers = findEquivalent(userStats, minUser, userComparator);
+
+                System.out.println("Max Pull Requests by User: " + maxUser.getTotal() + " " + maxUsers);
+                System.out.println("Min Pull Requests by User: " + minUser.getTotal() + " " + minUsers);
+                System.out.println("Average Pull Requests per User: " + (collector.getTotal() / userStats.size()));
+            }
         }
 
-        if (this.userDetailedStats) {
+        if (userStats.size() > 0 && (this.userDetailedStats || this.all)) {
             Collections.sort(userStats, userComparator);
-            for (UserPullRequestsCollector userCollector : userStats) {
+            for (AbstractUserPullRequestCollector userCollector : userStats) {
                 outputUserStats(userCollector);
                 System.out.println();
             }
         }
+
+        // Merging User Stats
+        List<MergingUserCollector> mergingUserStats = collector.getMergingUserStats();
+        UserComparator<MergingUserCollector> mergeUserComparator = new UserComparator<MergingUserCollector>();
+        if (this.mergeSummary || this.all) {
+            System.out.println("Total Merging Users: " + mergingUserStats.size());
+
+            if (mergingUserStats.size() > 0) {
+                MergingUserCollector maxUser = Collections.max(mergingUserStats, mergeUserComparator);
+                List<MergingUserCollector> maxUsers = findEquivalent(mergingUserStats, maxUser, mergeUserComparator);
+                MergingUserCollector minUser = Collections.min(mergingUserStats, mergeUserComparator);
+                List<MergingUserCollector> minUsers = findEquivalent(mergingUserStats, minUser, mergeUserComparator);
+
+                System.out.println("Max Pull Requests Merged by User: " + maxUser.getMerged() + " " + maxUsers);
+                System.out.println("Min Pull Requests Merged by User: " + minUser.getMerged() + " " + minUsers);
+                System.out.println("Average Pull Requests Merged per User: "
+                        + (collector.getMerged() / mergingUserStats.size()));
+            }
+        }
+
+        if (mergingUserStats.size() > 0 && (this.mergeDetailedStats || this.all)) {
+            Collections.sort(mergingUserStats, mergeUserComparator);
+            for (MergingUserCollector userCollector : mergingUserStats) {
+                outputUserStats(userCollector);
+                System.out.println();
+            }
+        }
+
     }
 
     private void outputBasicStatus(AbstractPullRequestCollector collector) {
@@ -218,7 +260,7 @@ public class PullRequestStats {
         }
     }
 
-    private void outputUserStats(UserPullRequestsCollector collector) {
+    private <T extends AbstractUserPullRequestCollector> void outputUserStats(T collector) {
         System.out.println(collector.getUser().getLogin());
         outputBasicStatus(collector);
         outputPercentage(collector.getSelfMergedPercentage(), "Self Merged Pull Requests");
@@ -287,11 +329,11 @@ public class PullRequestStats {
         return builder.toString();
     }
 
-    private List<UserPullRequestsCollector> findEquivalent(List<UserPullRequestsCollector> users,
-            UserPullRequestsCollector user, Comparator<UserPullRequestsCollector> comparator) {
-        List<UserPullRequestsCollector> equivUsers = new ArrayList<UserPullRequestsCollector>();
+    private <T extends AbstractUserPullRequestCollector> List<T> findEquivalent(List<T> users, T user,
+            UserComparator<T> comparator) {
+        List<T> equivUsers = new ArrayList<T>();
 
-        for (UserPullRequestsCollector possUser : users) {
+        for (T possUser : users) {
             if (comparator.compare(user, possUser) == 0)
                 equivUsers.add(possUser);
         }

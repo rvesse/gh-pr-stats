@@ -14,17 +14,29 @@
 
 package com.github.rvesse.github.pr.stats.collectors;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.eclipse.egit.github.core.PullRequest;
+import org.eclipse.egit.github.core.RepositoryId;
+import org.eclipse.egit.github.core.User;
 import org.eclipse.egit.github.core.client.GitHubClient;
+import org.eclipse.egit.github.core.service.PullRequestService;
 
 public class PullRequestsCollector extends AbstractPullRequestCollector {
 
-    private Map<Integer, UserPullRequestsCollector> users = new HashMap<Integer, UserPullRequestsCollector>();
+    private Map<Integer, UserCollector> users = new HashMap<Integer, UserCollector>();
+    private Map<Integer, MergingUserCollector> mergingUsers = new HashMap<Integer, MergingUserCollector>();
+
+    private boolean userStats, mergingUserStats;
+
+    public PullRequestsCollector(boolean collectUserStats, boolean collectMergingUserStats) {
+        this.userStats = collectUserStats;
+        this.mergingUserStats = collectMergingUserStats;
+    }
 
     @Override
     public void collect(GitHubClient client, PullRequest pr) {
@@ -32,13 +44,43 @@ public class PullRequestsCollector extends AbstractPullRequestCollector {
         super.collect(client, pr);
 
         // Collect user stats
-        UserPullRequestsCollector userCollector = this.users.get(pr.getUser().getId());
-        if (userCollector == null) {
-            userCollector = new UserPullRequestsCollector(client, pr.getUser());
-            userCollector.start();
-            this.users.put(pr.getUser().getId(), userCollector);
+        if (this.userStats) {
+            UserCollector userCollector = this.users.get(pr.getUser().getId());
+            if (userCollector == null) {
+                userCollector = new UserCollector(pr.getUser());
+                userCollector.start();
+                this.users.put(pr.getUser().getId(), userCollector);
+            }
+            userCollector.collect(client, pr);
         }
-        userCollector.collect(client, pr);
+
+        // Collect merging user stats
+        if (this.mergingUserStats) {
+            if (pr.getMergedAt() != null) {
+                User mergeUser = pr.getMergedBy();
+//                if (mergeUser == null) {
+//                    try {
+//                        RepositoryId repo = new RepositoryId(pr.getBase().getRepo().getOwner().getLogin(), pr.getBase()
+//                                .getRepo().getName());
+//                        pr = new PullRequestService(client).getPullRequest(repo, (int) pr.getId());
+//                        mergeUser = pr.getMergedBy();
+//                    } catch (IOException e) {
+//                        // Ignore
+//                    }
+//                }
+                if (mergeUser != null) {
+                    MergingUserCollector mergeUserCollector = this.mergingUsers.get(mergeUser.getId());
+                    if (mergeUserCollector == null) {
+                        mergeUserCollector = new MergingUserCollector(pr.getMergedBy());
+                        mergeUserCollector.start();
+                        this.mergingUsers.put(pr.getMergedBy().getId(), mergeUserCollector);
+                    }
+                    mergeUserCollector.collect(client, pr);
+                } else {
+                    //System.out.println("Unable to determine merging user for PR #" + pr.getNumber());
+                }
+            }
+        }
     }
 
     @Override
@@ -46,14 +88,18 @@ public class PullRequestsCollector extends AbstractPullRequestCollector {
         super.start();
 
         this.users.clear();
+        this.mergingUsers.clear();
     }
 
     @Override
     public void end() {
         super.end();
 
-        for (UserPullRequestsCollector userCollector : this.users.values()) {
+        for (AbstractUserPullRequestCollector userCollector : this.users.values()) {
             userCollector.end();
+        }
+        for (AbstractUserPullRequestCollector mergeUserCollector : this.mergingUsers.values()) {
+            mergeUserCollector.end();
         }
     }
 
@@ -61,7 +107,15 @@ public class PullRequestsCollector extends AbstractPullRequestCollector {
         return this.users.size();
     }
 
-    public List<UserPullRequestsCollector> getUserStats() {
-        return new ArrayList<UserPullRequestsCollector>(this.users.values());
+    public List<UserCollector> getUserStats() {
+        return new ArrayList<UserCollector>(this.users.values());
+    }
+
+    public long getTotalMergingUsers() {
+        return this.mergingUsers.size();
+    }
+
+    public List<MergingUserCollector> getMergingUserStats() {
+        return new ArrayList<MergingUserCollector>(this.mergingUsers.values());
     }
 }

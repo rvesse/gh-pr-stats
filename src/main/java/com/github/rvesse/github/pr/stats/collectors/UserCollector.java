@@ -12,27 +12,19 @@
  * limitations under the License.
  */
 
-package com.github.rvesse.github.pr.stats.comparators;
+package com.github.rvesse.github.pr.stats.collectors;
 
-import java.util.Comparator;
+import org.eclipse.egit.github.core.PullRequest;
+import org.eclipse.egit.github.core.User;
 
-import com.github.rvesse.github.pr.stats.collectors.UserPullRequestsCollector;
+public class UserCollector extends AbstractUserPullRequestCollector {
 
-public class UserPullRequestsComparator implements Comparator<UserPullRequestsCollector> {
-
-    @Override
-    public int compare(UserPullRequestsCollector o1, UserPullRequestsCollector o2) {
-        if (o1 == o2)
-            return 0;
-
-        long x = o1.getTotal();
-        long y = o2.getTotal();
-
-        if (x == y)
-            return 0;
-        if (x > y)
-            return 1;
-        return -1;
+    public UserCollector(User user) {
+        super(user);
     }
-
+    
+    @Override
+    protected boolean shouldCollect(PullRequest pr) {
+        return pr.getUser().getId() != this.getUser().getId();
+    }
 }
