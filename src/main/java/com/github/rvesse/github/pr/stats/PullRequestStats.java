@@ -14,7 +14,12 @@
 
 package com.github.rvesse.github.pr.stats;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -29,6 +34,7 @@ import org.eclipse.egit.github.core.PullRequest;
 import org.eclipse.egit.github.core.RepositoryId;
 import org.eclipse.egit.github.core.User;
 import org.eclipse.egit.github.core.client.GitHubClient;
+import org.eclipse.egit.github.core.client.GsonUtils;
 import org.eclipse.egit.github.core.service.PullRequestService;
 import org.eclipse.egit.github.core.service.UserService;
 
@@ -39,6 +45,8 @@ import com.github.rvesse.github.pr.stats.collectors.MergingUserCollector;
 import com.github.rvesse.github.pr.stats.collectors.PullRequestsCollector;
 import com.github.rvesse.github.pr.stats.collectors.UserCollector;
 import com.github.rvesse.github.pr.stats.comparators.UserComparator;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
@@ -85,7 +93,17 @@ public class PullRequestStats {
     @Inject
     private CommandMetadata metadata;
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws MalformedURLException, IOException {
+        // String url = "https://api.github.com/repos/amplab/tachyon/pulls/833";
+        // BufferedReader reader = new BufferedReader(new InputStreamReader(new
+        // URL(url).openStream()));
+        // Gson gson = GsonUtils.createGson(true);
+        // PullRequest pr = gson.fromJson(reader, PullRequest.class);
+        // System.out.println(pr.getMergedBy().getLogin());
+        //
+        // System.exit(1);
+        //
+        //
         SingleCommand<PullRequestStats> cmd = SingleCommand.singleCommand(PullRequestStats.class);
         try {
             PullRequestStats prStats = cmd.parse(args);
@@ -182,6 +200,7 @@ public class PullRequestStats {
                 System.out.println("Min Pull Requests by User: " + minUser.getTotal() + " " + minUsers);
                 System.out.println("Average Pull Requests per User: " + (collector.getTotal() / userStats.size()));
             }
+            System.out.println();
         }
 
         if (userStats.size() > 0 && (this.userDetailedStats || this.all)) {
@@ -209,6 +228,7 @@ public class PullRequestStats {
                 System.out.println("Average Pull Requests Merged per User: "
                         + (collector.getMerged() / mergingUserStats.size()));
             }
+            System.out.println();
         }
 
         if (mergingUserStats.size() > 0 && (this.mergeDetailedStats || this.all)) {
@@ -222,17 +242,34 @@ public class PullRequestStats {
     }
 
     private void outputBasicStatus(AbstractPullRequestCollector collector) {
+        if (collector.getTotal() == 0)
+            return;
         System.out.println("Total Pull Requests: " + collector.getTotal());
-        System.out.println("Merged Pull Requests: " + collector.getMerged());
-        System.out.println("Open Pull Requests: " + collector.getOpen());
-        System.out.println("Open Mergeable Pull Requests: " + collector.getOpenMergeable());
-        System.out.println("Closed Pull Requests: " + collector.getClosed());
-        outputPercentage(collector.getMergedPercentage(), "Merged Pull Requests");
-        outputPercentage(collector.getOpenPercentage(), "Open Pull Requests");
-        outputPercentage(collector.getClosedPercentage(), "Closed Pull Requests");
+        if (collector.getMerged() > 0) {
+            System.out.println("Merged Pull Requests: " + collector.getMerged());
+        }
+        if (collector.getOpen() > 0) {
+            System.out.println("Open Pull Requests: " + collector.getOpen());
+            System.out.println("Open Mergeable Pull Requests: " + collector.getOpenMergeable());
+        }
+        if (collector.getClosed() > 0) {
+            System.out.println("Closed Pull Requests: " + collector.getClosed());
+        }
+        if (collector.getMerged() > 0) {
+            outputPercentage(collector.getMergedPercentage(), "Merged Pull Requests");
+        }
+        if (collector.getOpen() > 0) {
+            outputPercentage(collector.getOpenPercentage(), "Open Pull Requests");
+        }
+        if (collector.getClosed() > 0) {
+            outputPercentage(collector.getClosedPercentage(), "Closed Pull Requests");
+        }
     }
 
     private void outputAgeStats(LongStatsCollector collector, String metric, boolean includeFrequencies) {
+        if (collector.getDescriptiveStats().getN() == 0)
+            return;
+
         // Present stats
         System.out.println("Minimum " + metric + ": " + (long) collector.getDescriptiveStats().getMin());
         System.out.println("Maximum " + metric + ": " + (long) collector.getDescriptiveStats().getMax());

@@ -58,16 +58,17 @@ public class PullRequestsCollector extends AbstractPullRequestCollector {
         if (this.mergingUserStats) {
             if (pr.getMergedAt() != null) {
                 User mergeUser = pr.getMergedBy();
-//                if (mergeUser == null) {
-//                    try {
-//                        RepositoryId repo = new RepositoryId(pr.getBase().getRepo().getOwner().getLogin(), pr.getBase()
-//                                .getRepo().getName());
-//                        pr = new PullRequestService(client).getPullRequest(repo, (int) pr.getId());
-//                        mergeUser = pr.getMergedBy();
-//                    } catch (IOException e) {
-//                        // Ignore
-//                    }
-//                }
+                if (mergeUser == null) {
+                    try {
+                        RepositoryId repo = new RepositoryId(pr.getBase().getRepo().getOwner().getLogin(), pr.getBase()
+                                .getRepo().getName());
+                        pr = new PullRequestService(client).getPullRequest(repo, pr.getNumber());
+                        mergeUser = pr.getMergedBy();
+                    } catch (IOException e) {
+                        // Ignore
+                        System.out.println("Failed to obtain detailed information for PR #" + pr.getNumber());
+                    }
+                }
                 if (mergeUser != null) {
                     MergingUserCollector mergeUserCollector = this.mergingUsers.get(mergeUser.getId());
                     if (mergeUserCollector == null) {
@@ -77,7 +78,7 @@ public class PullRequestsCollector extends AbstractPullRequestCollector {
                     }
                     mergeUserCollector.collect(client, pr);
                 } else {
-                    //System.out.println("Unable to determine merging user for PR #" + pr.getNumber());
+                    System.out.println("Unable to determine merging user for PR #" + pr.getNumber());
                 }
             }
         }

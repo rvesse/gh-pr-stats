@@ -21,7 +21,7 @@ public class AbstractUserPullRequestCollector extends AbstractPullRequestCollect
     
     @Override
     public void collect(GitHubClient client, PullRequest pr) {
-        if (shouldCollect(pr))
+        if (!shouldCollect(pr))
             return;
 
         // Collect standard stats
