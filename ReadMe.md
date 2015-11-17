@@ -22,7 +22,8 @@ follow these steps:
 * Go to the `Edit Profile` page
 * Click on the `Applications` in the left hand navigation
 * Under `Personal Access Tokens` click `Generate New Token`
-* This token requires no privileges, if you wish to use the tool on private repositories add the `repo` privilege
+* This token only needs the `public_repo` privileges.
+    * You may wish to add the `repo` privilege if you wish to analyse private repositories
 
 # Generating Stats
 
