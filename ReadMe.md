@@ -22,8 +22,9 @@ follow these steps:
 * Go to the `Edit Profile` page
 * Click on the `Applications` in the left hand navigation
 * Under `Personal Access Tokens` click `Generate New Token`
-* This token only needs the `public_repo` privileges.
+    * This token only needs the `public_repo` privileges.
     * You may wish to add the `repo` privilege if you wish to analyse private repositories
+* Save the generated token somewhere for your future use as GitHub will not show you the token again
 
 # Generating Stats
 
