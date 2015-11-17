@@ -12,7 +12,7 @@
 		<commons-csv.version>1.1</commons-csv.version>
 		<commons-math.version>3.4.1</commons-math.version>
 		<!-- <github-api.version>2.1.5</github-api.version> -->
-		<github-api.version>4.0.0.201503231230-m1</github-api.version>
+		<github-api.version>4.2.0.201511101648-m1</github-api.version>
 		<!-- <github-api.version>4.0.0-SNAPSHOT</github-api.version>-->
 		<gson.version>2.2.2</gson.version>
 		<joda-time.version>2.7</joda-time.version>
