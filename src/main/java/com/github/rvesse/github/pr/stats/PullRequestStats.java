@@ -14,15 +14,10 @@
 
 package com.github.rvesse.github.pr.stats;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 import javax.inject.Inject;
@@ -34,7 +29,6 @@ import org.eclipse.egit.github.core.PullRequest;
 import org.eclipse.egit.github.core.RepositoryId;
 import org.eclipse.egit.github.core.User;
 import org.eclipse.egit.github.core.client.GitHubClient;
-import org.eclipse.egit.github.core.client.GsonUtils;
 import org.eclipse.egit.github.core.service.PullRequestService;
 import org.eclipse.egit.github.core.service.UserService;
 
@@ -45,9 +39,6 @@ import com.github.rvesse.github.pr.stats.collectors.MergingUserCollector;
 import com.github.rvesse.github.pr.stats.collectors.PullRequestsCollector;
 import com.github.rvesse.github.pr.stats.collectors.UserCollector;
 import com.github.rvesse.github.pr.stats.comparators.UserComparator;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
 import io.airlift.airline.HelpOption;
@@ -63,10 +54,10 @@ public class PullRequestStats {
     @Arguments(title = { "Owner", "Repository" }, description = "Sets the repository for which to generate statistics", required = true)
     private List<String> repo = new ArrayList<String>();
 
-    @Option(name = { "-u", "--user", "--username" }, title = "GitHubUsername", description = "Sets the GitHub username with which to authenticate, it is generally more secure to use OAuth2 tokens via the --oauth option")
+    @Option(name = { "-u", "--user", "--username" }, title = "GitHubUsername", description = "Sets the GitHub username with which to authenticate, it is generally more secure to use OAuth2 tokens via the --oauth option.  If omitted the application will prompt you for it.")
     private String user;
 
-    @Option(name = { "-p", "--pwd", "--password" }, title = "GitHubPassword", description = "Sets the GitHub password with which to authenticate.  If omitted the application will prompt you for it.", hidden = true)
+    @Option(name = { "-p", "--pwd", "--password" }, title = "GitHubPassword", description = "Sets the GitHub password with which to authenticate, it is generally more secure to use OAuth2 tokens via the --oauth option.  If omitted the application will prompt you for it.", hidden = true)
     private String pwd;
 
     @Option(name = { "--oauth" }, title = "GitHubOAuth2Token", description = "Sets the GitHub OAuth2 Token to use for authenitcation")
@@ -94,16 +85,6 @@ public class PullRequestStats {
     private CommandMetadata metadata;
 
     public static void main(String[] args) throws MalformedURLException, IOException {
-        // String url = "https://api.github.com/repos/amplab/tachyon/pulls/833";
-        // BufferedReader reader = new BufferedReader(new InputStreamReader(new
-        // URL(url).openStream()));
-        // Gson gson = GsonUtils.createGson(true);
-        // PullRequest pr = gson.fromJson(reader, PullRequest.class);
-        // System.out.println(pr.getMergedBy().getLogin());
-        //
-        // System.exit(1);
-        //
-        //
         SingleCommand<PullRequestStats> cmd = SingleCommand.singleCommand(PullRequestStats.class);
         try {
             PullRequestStats prStats = cmd.parse(args);

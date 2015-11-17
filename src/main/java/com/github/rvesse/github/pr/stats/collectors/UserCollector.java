@@ -25,6 +25,6 @@ public class UserCollector extends AbstractUserPullRequestCollector {
     
     @Override
     protected boolean shouldCollect(PullRequest pr) {
-        return pr.getUser().getId() != this.getUser().getId();
+        return pr.getUser().getId() == this.getUser().getId();
     }
 }

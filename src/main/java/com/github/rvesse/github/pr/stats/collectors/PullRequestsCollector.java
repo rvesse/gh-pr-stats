@@ -42,18 +42,7 @@ public class PullRequestsCollector extends AbstractPullRequestCollector {
     public void collect(GitHubClient client, PullRequest pr) {
         // Collect standard stats
         super.collect(client, pr);
-
-        // Collect user stats
-        if (this.userStats) {
-            UserCollector userCollector = this.users.get(pr.getUser().getId());
-            if (userCollector == null) {
-                userCollector = new UserCollector(pr.getUser());
-                userCollector.start();
-                this.users.put(pr.getUser().getId(), userCollector);
-            }
-            userCollector.collect(client, pr);
-        }
-
+        
         // Collect merging user stats
         if (this.mergingUserStats) {
             if (pr.getMergedAt() != null) {
@@ -81,6 +70,17 @@ public class PullRequestsCollector extends AbstractPullRequestCollector {
                     System.out.println("Unable to determine merging user for PR #" + pr.getNumber());
                 }
             }
+        }
+
+        // Collect user stats
+        if (this.userStats) {
+            UserCollector userCollector = this.users.get(pr.getUser().getId());
+            if (userCollector == null) {
+                userCollector = new UserCollector(pr.getUser());
+                userCollector.start();
+                this.users.put(pr.getUser().getId(), userCollector);
+            }
+            userCollector.collect(client, pr);
         }
     }
 
