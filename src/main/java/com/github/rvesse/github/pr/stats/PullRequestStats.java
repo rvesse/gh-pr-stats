@@ -14,6 +14,8 @@
 
 package com.github.rvesse.github.pr.stats;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
@@ -22,7 +24,6 @@ import java.util.List;
 
 import javax.inject.Inject;
 
-import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.math3.stat.Frequency;
 import org.apache.commons.math3.stat.descriptive.rank.Percentile;
 import org.eclipse.egit.github.core.PullRequest;
@@ -32,6 +33,21 @@ import org.eclipse.egit.github.core.client.GitHubClient;
 import org.eclipse.egit.github.core.service.PullRequestService;
 import org.eclipse.egit.github.core.service.UserService;
 
+import com.github.rvesse.airline.HelpOption;
+import com.github.rvesse.airline.SingleCommand;
+import com.github.rvesse.airline.annotations.Arguments;
+import com.github.rvesse.airline.annotations.Command;
+import com.github.rvesse.airline.annotations.Option;
+import com.github.rvesse.airline.annotations.Parser;
+import com.github.rvesse.airline.annotations.restrictions.MutuallyExclusiveWith;
+import com.github.rvesse.airline.annotations.restrictions.Required;
+import com.github.rvesse.airline.help.Help;
+import com.github.rvesse.airline.help.cli.CliCommandUsageGenerator;
+import com.github.rvesse.airline.model.CommandMetadata;
+import com.github.rvesse.airline.model.ParserMetadata;
+import com.github.rvesse.airline.parser.ParseResult;
+import com.github.rvesse.airline.parser.errors.ParseException;
+import com.github.rvesse.airline.parser.errors.handlers.CollectAll;
 import com.github.rvesse.github.pr.stats.collectors.AbstractPullRequestCollector;
 import com.github.rvesse.github.pr.stats.collectors.AbstractUserPullRequestCollector;
 import com.github.rvesse.github.pr.stats.collectors.LongStatsCollector;
@@ -39,29 +55,32 @@ import com.github.rvesse.github.pr.stats.collectors.MergingUserCollector;
 import com.github.rvesse.github.pr.stats.collectors.PullRequestsCollector;
 import com.github.rvesse.github.pr.stats.collectors.UserCollector;
 import com.github.rvesse.github.pr.stats.comparators.UserComparator;
-import io.airlift.airline.Arguments;
-import io.airlift.airline.Command;
-import io.airlift.airline.HelpOption;
-import io.airlift.airline.Option;
-import io.airlift.airline.ParseArgumentsMissingException;
-import io.airlift.airline.SingleCommand;
-import io.airlift.airline.help.cli.CliCommandUsageGenerator;
-import io.airlift.airline.model.CommandMetadata;
 
 @Command(name = "pr-stats", description = "Generates Pull Request statistics for a GitHub repository")
+@Parser(errorHandler = CollectAll.class)
 public class PullRequestStats {
 
-    @Arguments(title = { "Owner", "Repository" }, description = "Sets the repository for which to generate statistics", required = true)
+    @Arguments(title = { "Owner", "Repository" }, description = "Sets the repository for which to generate statistics")
+    @Required
     private List<String> repo = new ArrayList<String>();
 
-    @Option(name = { "-u", "--user", "--username" }, title = "GitHubUsername", description = "Sets the GitHub username with which to authenticate, it is generally more secure to use OAuth2 tokens via the --oauth option.  If omitted the application will prompt you for it.")
+    @Option(name = { "-u", "--user",
+            "--username" }, title = "GitHubUsername", description = "Sets the GitHub username with which to authenticate, it is generally more secure to use OAuth2 tokens via the --oauth option.  If omitted the application will prompt you for it.")
     private String user;
 
-    @Option(name = { "-p", "--pwd", "--password" }, title = "GitHubPassword", description = "Sets the GitHub password with which to authenticate, it is generally more secure to use OAuth2 tokens via the --oauth option.  If omitted the application will prompt you for it.", hidden = true)
+    @Option(name = { "-p", "--pwd",
+            "--password" }, title = "GitHubPassword", description = "Sets the GitHub password with which to authenticate, it is generally more secure to use OAuth2 tokens via the --oauth option.  If omitted the application will prompt you for it.", hidden = true)
     private String pwd;
 
-    @Option(name = { "--oauth" }, title = "GitHubOAuth2Token", description = "Sets the GitHub OAuth2 Token to use for authenitcation")
+    @Option(name = {
+            "--oauth" }, title = "GitHubOAuth2Token", description = "Sets the GitHub OAuth2 Token to use for authentication")
+    @MutuallyExclusiveWith(tag = "OAuth")
     private String oauthToken;
+
+    @Option(name = {
+            "--oauth-file" }, title = "GitHubOAuth2TokenFile", description = "Sets the file containing the GitHub OAuth2 Token to use for authentication")
+    @MutuallyExclusiveWith(tag = "OAuth")
+    private String oauthTokenFile;
 
     @Option(name = { "--user-summary" }, description = "When set includes a user summary in the statistics")
     private boolean userSummary = false;
@@ -69,59 +88,66 @@ public class PullRequestStats {
     @Option(name = { "--user-stats" }, description = "When set includes detailed user statistics")
     private boolean userDetailedStats = false;
 
-    @Option(name = { "--merge-summary" }, description = "When set includes a summary of merging users in the statistics i.e. details about who merges the pull requests")
+    @Option(name = {
+            "--merge-summary" }, description = "When set includes a summary of merging users in the statistics i.e. details about who merges the pull requests")
     private boolean mergeSummary = false;
 
-    @Option(name = { "--merge-stats" }, description = "When set includes detailed merging user statistics i.e. details about who merges the pull requests")
+    @Option(name = {
+            "--merge-stats" }, description = "When set includes detailed merging user statistics i.e. details about who merges the pull requests")
     private boolean mergeDetailedStats = false;
 
     @Option(name = { "-a", "--all" }, description = "When set includes all available statistics in the output")
     private boolean all = false;
 
     @Inject
-    private HelpOption help = new HelpOption();
+    private HelpOption<PullRequestStats> help = new HelpOption<PullRequestStats>();
 
     @Inject
     private CommandMetadata metadata;
 
+    @Inject
+    private ParserMetadata<PullRequestStats> parserConfig;
+
     public static void main(String[] args) throws MalformedURLException, IOException {
-        SingleCommand<PullRequestStats> cmd = SingleCommand.singleCommand(PullRequestStats.class);
+        SingleCommand<PullRequestStats> parser = SingleCommand.singleCommand(PullRequestStats.class);
         try {
-            PullRequestStats prStats = cmd.parse(args);
-            prStats.run();
-            System.exit(0);
-        } catch (ParseArgumentsMissingException e) {
-            if (ArrayUtils.contains(args, "--help") || ArrayUtils.contains(args, "-h")) {
-                CliCommandUsageGenerator generator = new CliCommandUsageGenerator();
-                try {
-                    generator.usage(null, null, "pr-stats", cmd.getCommandMetadata());
-                } catch (IOException e1) {
-                    System.err.println("Failed to dispaly help: " + e1.getMessage());
-                    e1.printStackTrace(System.err);
-                    System.exit(1);
-                }
-                return;
+            ParseResult<PullRequestStats> results = parser.parseWithResult(args);
+            if (results.wasSuccessful()) {
+                // Run the command
+                results.getCommand().run();
             } else {
-                System.err.println(e.getMessage());
-                System.exit(1);
+                // Display errors
+                int errNum = 1;
+                for (ParseException e : results.getErrors()) {
+                    System.err.format("Error #%d: %s\n", errNum, e.getMessage());
+                    errNum++;
+                }
+                System.err.println();
+
+                // Show help
+                Help.help(parser.getCommandMetadata(), System.out);
             }
+            System.exit(0);
+        } catch (ParseException e) {
+            System.err.println(e.getMessage());
+            System.exit(1);
         } catch (Throwable t) {
             System.err.println(t.getMessage());
             t.printStackTrace(System.err);
-            System.exit(1);
+            System.exit(2);
         }
     }
 
     public void run() throws IOException {
         if (help.showHelpIfRequested()) {
             CliCommandUsageGenerator generator = new CliCommandUsageGenerator();
-            generator.usage(null, null, "pr-stats", this.metadata);
+            generator.usage(null, null, "pr-stats", this.metadata, this.parserConfig, System.out);
             return;
         }
 
         GitHubClient client = new GitHubClient();
         prepareCredentials(client);
-        client.setUserAgent("GitHub PR Stats Bot/0.0.1 (+http://github.com/rvesse/gh-pr-stats.git)");
+        client.setUserAgent("GitHub PR Stats Bot/0.1.0 (+http://github.com/rvesse/gh-pr-stats.git)");
 
         // Get the user just to force us to make one request so we can get stats
         // about the remaining requests
@@ -135,8 +161,9 @@ public class PullRequestStats {
         PullRequestService prService = new PullRequestService(client);
         RepositoryId repoId = prepareRepositoryId();
         List<PullRequest> prs = prService.getPullRequests(repoId, "all");
-        PullRequestsCollector collector = new PullRequestsCollector(this.userSummary || this.userDetailedStats
-                || this.all, this.mergeSummary || this.mergeDetailedStats || this.all);
+        PullRequestsCollector collector = new PullRequestsCollector(
+                this.userSummary || this.userDetailedStats || this.all,
+                this.mergeSummary || this.mergeDetailedStats || this.all);
         collector.start();
         for (PullRequest pr : prs) {
             System.out.println("Processing PR #" + pr.getNumber());
@@ -148,8 +175,8 @@ public class PullRequestStats {
         System.out.println();
         System.out.println("You have " + client.getRemainingRequests() + " GitHub API requests of "
                 + client.getRequestLimit() + " remaining");
-        System.out.println("Generating statistics used " + (start - client.getRemainingRequests())
-                + " GitHub API requests");
+        System.out.println(
+                "Generating statistics used " + (start - client.getRemainingRequests()) + " GitHub API requests");
         System.out.println();
 
         // Output Stats
@@ -206,8 +233,8 @@ public class PullRequestStats {
 
                 System.out.println("Max Pull Requests Merged by User: " + maxUser.getMerged() + " " + maxUsers);
                 System.out.println("Min Pull Requests Merged by User: " + minUser.getMerged() + " " + minUsers);
-                System.out.println("Average Pull Requests Merged per User: "
-                        + (collector.getMerged() / mergingUserStats.size()));
+                System.out.println(
+                        "Average Pull Requests Merged per User: " + (collector.getMerged() / mergingUserStats.size()));
             }
             System.out.println();
         }
@@ -254,8 +281,8 @@ public class PullRequestStats {
         // Present stats
         System.out.println("Minimum " + metric + ": " + (long) collector.getDescriptiveStats().getMin());
         System.out.println("Maximum " + metric + ": " + (long) collector.getDescriptiveStats().getMax());
-        System.out.println("Average (Arithmetic Mean) " + metric + ": "
-                + (long) collector.getDescriptiveStats().getMean());
+        System.out.println(
+                "Average (Arithmetic Mean) " + metric + ": " + (long) collector.getDescriptiveStats().getMean());
         System.out.println("Average (Geometric Mean) " + metric + ": "
                 + (long) collector.getDescriptiveStats().getGeometricMean());
 
@@ -289,8 +316,8 @@ public class PullRequestStats {
 
     private RepositoryId prepareRepositoryId() {
         if (this.repo.size() < 2) {
-            System.err
-                    .println("Insufficient repository information provided, you must provide both the owner and repository name");
+            System.err.println(
+                    "Insufficient repository information provided, you must provide both the owner and repository name");
             System.exit(1);
         }
         System.out.println("Generating PR Statistics for repository " + this.repo.get(0) + "/" + this.repo.get(1));
@@ -302,6 +329,16 @@ public class PullRequestStats {
             // OAuth 2 Authentication
             client.setOAuth2Token(this.oauthToken);
             System.out.println("Authenticating to GitHub using OAuth2 Token");
+        } else if (this.oauthTokenFile != null) {
+            // OAuth 2 Authentication with token stored in file
+            try (BufferedReader reader = new BufferedReader(new FileReader(this.oauthTokenFile))) {
+                this.oauthToken = reader.readLine();
+                client.setOAuth2Token(this.oauthToken);
+                System.out.println("Authenticating to GitHub using OAuth2 Token");
+            } catch (IOException e) {
+                throw new RuntimeException(
+                        String.format("Unable to read specified OAuth Token file %s", this.oauthTokenFile));
+            }
         } else {
             // Username and Password authentication
             if (this.user == null) {

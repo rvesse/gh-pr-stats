@@ -15,12 +15,11 @@ Build the code:
     
 ## Creating an Personal Access Token
 
-You can optionally create an personal access token in order to use OAuth2 authentication with this application.  To do this
-follow these steps:
+You can optionally create an personal access token in order to use OAuth2 authentication with this application.  To do this follow these steps:
 
 * Login to your GitHub Account
-* Go to the `Edit Profile` page
-* Click on the `Applications` in the left hand navigation
+* Go to the `Settings` page
+* Click on the `Developer Settings` in the left hand navigation
 * Under `Personal Access Tokens` click `Generate New Token`
     * This token only needs the `public_repo` privileges.
     * You may wish to add the `repo` privilege if you wish to analyse private repositories
@@ -34,12 +33,15 @@ To generate statistics do the following:
     
 This will prompt you for your username and password and then use the GitHub API to generate statistics for the `owner/repo` repository
 
-It is generally recommended to use OAuth2 authentication by generating a Personal Access Token as detailed above.  With this you can generate
-statistics like so:
+It is generally recommended to use OAuth2 authentication by generating a Personal Access Token as detailed above.  With this you can generate statistics like so:
 
     > ./pr-stats --oauth token owner repo
     
 Provided the `token` is a valid access token you will not need to provide a username or password to authenticate.
+
+Or if you have stored the token in a file you can do the following:
+
+    > ./pr-stats --oauth-file file owner repo
 
 ## Available Stats
 
